@@ -1,0 +1,62 @@
+# Laravel specific
+/vendor/
+node_modules/
+public/storage
+storage/*.key
+.env
+.env.*.php
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# Laravel 8/9 specific (IDE Helper, Telescope, Horizon, etc.)
+_ide_helper.php
+.phpstorm.meta.php
+/storage/logs
+/storage/framework/cache/data
+/storage/framework/sessions
+/storage/framework/views
+/storage/oauth-private.key
+/storage/oauth-public.key
+
+# OS and IDE specific
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Composer specific
+composer.lock
+
+# NPM/Bun/Pnpm lock files (optional)
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Cache files
+.env.backup
+.env.local
+.env.testing
+.env.production
+.env.*.backup
+.env.*.example
+.env*.bak
+.env*.tmp
+
+# PHPUnit coverage
+coverage/
+
+# Docker
+docker-compose.override.yml
+
+# Optional: Ignore Laravel Mix output
+/public/js/
+/public/css/
+/public/mix-manifest.json
+
+# Optional: Ignore Telescope/Horizon storage
+storage/telescope
+storage/horizon
