@@ -14,7 +14,7 @@ class PortfolioScraperService
     {
         $this->httpClient = new Client([
             'timeout' => 30,
-            'verify' => false, // Disable SSL verification (for development only)
+            'verify' => false, 
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -35,7 +35,6 @@ class PortfolioScraperService
             $response = $this->httpClient->get($url);
             $html = $response->getBody()->getContents();
             
-            // Log the first 500 characters of HTML for debugging
             Log::debug('HTML response sample: '.substr($html, 0, 500));
             
             $crawler = new Crawler($html);
@@ -61,29 +60,24 @@ class PortfolioScraperService
         $portfolioData = [];
         
         try {
-            // Extract basic portfolio information
             $portfolioData = $this->extractPortfolioInfo($crawler, $url);
             
-            // Try multiple approaches to find content sections
             $sections = $crawler->filter('section, div[class*="section"], div[class*="container"]');
             
             $currentSection = null;
             $allVideos = [];
             
-            // Extract all videos first
             $videoElements = $crawler->filter('iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="youtu.be"], a[href*="youtube"], a[href*="vimeo"], a[href*="youtu.be"], video');
             
             $videoElements->each(function (Crawler $node) use (&$allVideos, $crawler) {
                 $videoData = $this->extractVideoData($node);
                 if ($videoData) {
-                    // Try to find associated title/description
                     $parentSection = $this->findParentSection($node, $crawler);
                     $videoData['section_title'] = $parentSection;
                     $allVideos[] = $videoData;
                 }
             });
             
-            // Try to find client names and match with videos
             $headings = $crawler->filter('h1, h2, h3, h4, h5, h6, [class*="heading"], [class*="title"]');
             $clientNames = [];
             
@@ -94,11 +88,9 @@ class PortfolioScraperService
                 }
             });
             
-            // If we found client names, try to group videos by proximity
             if (!empty($clientNames) && !empty($allVideos)) {
                 $clients = $this->groupVideosByProximity($crawler, $clientNames, $allVideos);
             } else if (!empty($allVideos)) {
-                // If no clear client structure, group all videos under portfolio
                 $clients[] = [
                     'name' => 'Portfolio Work',
                     'videos' => $allVideos,
@@ -106,12 +98,10 @@ class PortfolioScraperService
                 ];
             }
             
-            // If still no clients found, try text extraction
             if (empty($clients)) {
                 $clients = $this->extractClientsFromText($crawler);
             }
             
-            // Extract additional portfolio metadata
             $portfolioData['skills'] = $this->extractSkills($crawler);
             $portfolioData['description'] = $this->extractDescription($crawler);
             $portfolioData['contact_info'] = $this->extractContactInfo($crawler);
@@ -136,24 +126,20 @@ class PortfolioScraperService
         $portfolioData = [];
         
         try {
-            // Extract basic portfolio information
             $portfolioData = $this->extractPortfolioInfo($crawler, $url);
             
-            // Find video elements
             $videoElements = $crawler->filter('iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="youtu.be"], a[href*="youtube"], a[href*="vimeo"], a[href*="youtu.be"], video, [class*="video"], [class*="portfolio-item"]');
             $videos = [];
             
             $videoElements->each(function (Crawler $node) use (&$videos, $crawler) {
                 $videoData = $this->extractVideoData($node);
                 if ($videoData) {
-                    // Try to find associated project info
                     $projectInfo = $this->extractProjectInfo($node, $crawler);
                     $videoData = array_merge($videoData, $projectInfo);
                     $videos[] = $videoData;
                 }
             });
             
-            // Try to find project/client sections
             $projectSections = $crawler->filter('[class*="project"], [class*="work"], [class*="portfolio-item"], [class*="gallery-item"]');
             
             if ($projectSections->count() > 0) {
@@ -165,7 +151,6 @@ class PortfolioScraperService
                 });
             }
             
-            // If no structured projects found, group all videos
             if (empty($clients) && !empty($videos)) {
                 $clients[] = [
                     'name' => 'Portfolio Work',
@@ -174,7 +159,6 @@ class PortfolioScraperService
                 ];
             }
             
-            // Extract additional metadata
             $portfolioData['skills'] = $this->extractSkills($crawler);
             $portfolioData['description'] = $this->extractDescription($crawler);
             $portfolioData['contact_info'] = $this->extractContactInfo($crawler);
@@ -197,7 +181,6 @@ class PortfolioScraperService
     {
         $info = ['url' => $url];
         
-        // Try to extract title
         $titleSelectors = ['title', 'h1', '[class*="name"]', '[class*="title"]'];
         foreach ($titleSelectors as $selector) {
             try {
@@ -211,14 +194,12 @@ class PortfolioScraperService
             }
         }
         
-        // Extract meta description
         try {
             $metaDesc = $crawler->filter('meta[name="description"]')->first();
             if ($metaDesc->count() > 0) {
                 $info['meta_description'] = $metaDesc->attr('content');
             }
         } catch (\Exception $e) {
-            // Continue without meta description
         }
         
         return $info;
@@ -240,7 +221,6 @@ class PortfolioScraperService
             $videoUrl = $node->attr('src') ?: $node->filter('source')->first()->attr('src');
             $title = $node->attr('title') ?: 'Video';
         } else {
-            // Check for data attributes or nested elements
             $link = $node->filter('a, iframe')->first();
             if ($link->count() > 0) {
                 $videoUrl = $link->attr('href') ?: $link->attr('src');
@@ -252,12 +232,10 @@ class PortfolioScraperService
             return null;
         }
         
-        // Normalize YouTube URLs
         if (str_contains($videoUrl, 'youtube') || str_contains($videoUrl, 'youtu.be')) {
             $videoUrl = $this->normalizeYouTubeUrl($videoUrl);
         }
         
-        // Try to extract description from nearby text
         try {
             $parent = $node->getNode(0)->parentNode;
             if ($parent) {
@@ -265,7 +243,6 @@ class PortfolioScraperService
                 $description = $this->extractNearbyText($parentCrawler);
             }
         } catch (\Exception $e) {
-            // Continue without description
         }
         
         return [
@@ -318,7 +295,6 @@ class PortfolioScraperService
                 $current = $current->parentNode;
                 $currentCrawler = new Crawler($current);
                 
-                // Look for headings in this section
                 $headings = $currentCrawler->filter('h1, h2, h3, h4, h5, h6');
                 if ($headings->count() > 0) {
                     $heading = trim($headings->first()->text());
@@ -328,7 +304,6 @@ class PortfolioScraperService
                 }
             }
         } catch (\Exception $e) {
-            // Continue without section title
         }
         
         return null;
@@ -345,7 +320,6 @@ class PortfolioScraperService
                 }
             }
         } catch (\Exception $e) {
-            // Continue without description
         }
         
         return null;
@@ -356,13 +330,11 @@ class PortfolioScraperService
         $info = [];
         
         try {
-            // Try to find parent container
             $current = $node->getNode(0);
             while ($current && $current->parentNode) {
                 $current = $current->parentNode;
                 $currentCrawler = new Crawler($current);
                 
-                // Look for project title
                 $title = $currentCrawler->filter('h1, h2, h3, h4, h5, h6, [class*="title"]')->first();
                 if ($title->count() > 0) {
                     $titleText = trim($title->text());
@@ -373,7 +345,6 @@ class PortfolioScraperService
                 }
             }
         } catch (\Exception $e) {
-            // Continue without project info
         }
         
         return $info;
@@ -401,7 +372,6 @@ class PortfolioScraperService
                 ];
             }
         } catch (\Exception $e) {
-            // Continue without this section
         }
         
         return null;
@@ -414,7 +384,6 @@ class PortfolioScraperService
         foreach ($clientNames as $clientName) {
             $clientVideos = [];
             
-            // Find videos that are near this client name in the DOM
             foreach ($videos as $video) {
                 if (isset($video['section_title']) && 
                     str_contains(strtolower($video['section_title']), strtolower($clientName))) {
@@ -436,7 +405,6 @@ class PortfolioScraperService
     {
         $skills = [];
         
-        // Look for common skill section patterns
         $skillSelectors = [
             '[class*="skill"]',
             '[class*="tag"]',
@@ -493,14 +461,12 @@ class PortfolioScraperService
     {
         $contact = [];
         
-        // Look for email
         $emailPattern = '/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/';
         preg_match($emailPattern, $crawler->text(), $emailMatches);
         if (!empty($emailMatches)) {
             $contact['email'] = $emailMatches[1];
         }
         
-        // Look for social links
         $socialLinks = $crawler->filter('a[href*="instagram"], a[href*="twitter"], a[href*="linkedin"], a[href*="facebook"]');
         $socialLinks->each(function (Crawler $node) use (&$contact) {
             $href = $node->attr('href');
@@ -520,18 +486,15 @@ class PortfolioScraperService
     {
         $text = strtolower(trim($text));
         
-        // Skip common non-client words
         $skipWords = ['video', 'work', 'portfolio', 'projects', 'about', 'contact', 'home', 'services', 'gallery', 'showcase'];
         foreach ($skipWords as $word) {
             if (str_contains($text, $word)) return false;
         }
         
-        // Check for company indicators
         if (preg_match('/\b(inc|ltd|llc|corp|company|agency|studio|productions?|films?|media|creative|design)\b/i', $text)) {
             return true;
         }
         
-        // Check length and format
         return strlen($text) >= 2 && strlen($text) <= 50 && 
                !str_contains($text, 'click') && 
                !str_contains($text, 'watch') &&
@@ -543,7 +506,6 @@ class PortfolioScraperService
         $clients = [];
         $textContent = $crawler->text();
         
-        // Look for company name patterns
         preg_match_all('/\b([A-Z][a-z]+ ?(?:[A-Z][a-z]*)* ?(?:Inc|Ltd|LLC|Corp|Company|Agency|Studio|Productions?|Films?|Media|Creative|Design))\b/', $textContent, $matches);
         
         if (!empty($matches[1])) {
@@ -579,7 +541,6 @@ class PortfolioScraperService
         } elseif (str_contains($videoUrl, 'vimeo.com')) {
             preg_match('/vimeo\.com\/(\d+)/', $videoUrl, $matches);
             if (isset($matches[1])) {
-                // Vimeo thumbnails require API call, return placeholder for now
                 return "https://vumbnail.com/{$matches[1]}.jpg";
             }
         }

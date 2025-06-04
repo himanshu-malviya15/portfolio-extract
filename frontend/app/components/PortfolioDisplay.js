@@ -44,8 +44,27 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
     });
   };
 
+  const normalizeVideoUrl = (url) => {
+    if (!url) return null;
+
+    if (url.includes("/embed/")) {
+      const videoIdMatch = url.match(/\/embed\/([^?]+)/);
+      if (videoIdMatch) {
+        return `https://www.youtube.com/watch?v=${videoIdMatch[1]}`;
+      }
+    }
+
+    return url;
+  };
+
   const extractVideoId = (url) => {
     if (!url) return null;
+
+    if (url.includes("/embed/")) {
+      const match = url.match(/\/embed\/([^?]+)/);
+      return match ? match[1] : null;
+    }
+
     const match = url.match(
       /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/
     );
@@ -70,15 +89,45 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
     }
   };
 
+  const getVideoData = (video) => {
+    return {
+      id: video.id,
+      title: video.title,
+      url: video.video_url || video.url,
+      description: video.description,
+      thumbnail: video.thumbnail_url || video.thumbnail,
+      platform: video.platform || "youtube",
+      project_title: video.project_title,
+      created_at: video.created_at,
+      updated_at: video.updated_at,
+    };
+  };
+
+  const getClientData = (client) => {
+    return {
+      id: client.id,
+      name: client.name,
+      description: client.description,
+      videos: client.videos ? client.videos.map(getVideoData) : [],
+      created_at: client.created_at,
+      updated_at: client.updated_at,
+    };
+  };
+
+  const processedClients = portfolio.clients
+    ? portfolio.clients.map(getClientData)
+    : [];
+  const portfolioData = portfolio.scraped_data || portfolio;
+
   const totalVideos =
-    portfolio.total_videos ||
-    portfolio.clients?.reduce(
+    portfolioData.total_videos ||
+    processedClients.reduce(
       (sum, client) => sum + (client.videos?.length || 0),
       0
     ) ||
     0;
   const totalClients =
-    portfolio.total_clients || portfolio.clients?.length || 0;
+    portfolioData.total_clients || processedClients.length || 0;
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Eye },
@@ -88,7 +137,6 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      {/* Header Section */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-shrink-0">
@@ -101,18 +149,23 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
             <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {portfolio.portfolio_info?.title || "Creative Portfolio"}
+                  {portfolioData.portfolio_info?.title || "Creative Portfolio"}
                 </h1>
                 <p className="text-gray-600 mb-4">
-                  {portfolio.portfolio_info?.meta_description ||
-                    portfolio.portfolio_info?.description ||
+                  {portfolioData.portfolio_info?.meta_description ||
+                    portfolioData.portfolio_info?.description ||
                     "Professional video portfolio showcasing creative work"}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
-                    <span>Scraped {formatDate(portfolio.scraped_at)}</span>
+                    <span>
+                      Scraped{" "}
+                      {formatDate(
+                        portfolioData.scraped_at || portfolio.created_at
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Users className="h-4 w-4" />
@@ -129,9 +182,15 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                   <div className="flex items-center space-x-1">
                     <Globe className="h-4 w-4" />
                     <span className="capitalize">
-                      {portfolio.type} Portfolio
+                      {portfolioData.type} Portfolio
                     </span>
                   </div>
+                  {portfolio.id && (
+                    <div className="flex items-center space-x-1">
+                      <Tag className="h-4 w-4" />
+                      <span>ID: {portfolio.id}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -146,9 +205,9 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                   <span>View Original</span>
                 </a>
 
-                {portfolio.portfolio_info?.contact_info?.email && (
+                {portfolioData.portfolio_info?.contact_info?.email && (
                   <a
-                    href={`mailto:${portfolio.portfolio_info.contact_info.email}`}
+                    href={`mailto:${portfolioData.portfolio_info.contact_info.email}`}
                     className="inline-flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 space-x-2"
                   >
                     <Mail className="h-4 w-4" />
@@ -158,7 +217,6 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
               </div>
             </div>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
                 <div className="flex items-center space-x-2">
@@ -189,7 +247,7 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                   <Tag className="h-5 w-5 text-green-600" />
                   <div>
                     <p className="text-2xl font-bold text-green-900">
-                      {portfolio.portfolio_info?.skills?.length || 0}
+                      {portfolioData.portfolio_info?.skills?.length || 0}
                     </p>
                     <p className="text-sm text-green-600">Skills</p>
                   </div>
@@ -201,7 +259,7 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                   <Globe className="h-5 w-5 text-orange-600" />
                   <div>
                     <p className="text-2xl font-bold text-orange-900 capitalize">
-                      {portfolio.type}
+                      {portfolioData.type}
                     </p>
                     <p className="text-sm text-orange-600">Platform</p>
                   </div>
@@ -212,7 +270,6 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
       <div className="bg-white rounded-xl shadow-lg">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
@@ -236,11 +293,9 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
           </nav>
         </div>
 
-        {/* Tab Content */}
         <div className="p-6">
           {activeTab === "overview" && (
             <div className="space-y-6">
-              {/* Quick Stats */}
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg">
                   <h3 className="font-semibold text-blue-900 mb-2">
@@ -262,20 +317,26 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                     <div className="flex justify-between">
                       <span className="text-blue-700">Platform Type:</span>
                       <span className="font-medium text-blue-900 capitalize">
-                        {portfolio.type}
+                        {portfolioData.type}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">Status:</span>
+                      <span className="font-medium text-blue-900 capitalize">
+                        {portfolio.status || "Active"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {portfolio.portfolio_info?.skills &&
-                  portfolio.portfolio_info.skills.length > 0 && (
+                {portfolioData.portfolio_info?.skills &&
+                  portfolioData.portfolio_info.skills.length > 0 && (
                     <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg">
                       <h3 className="font-semibold text-purple-900 mb-3">
                         Skills & Expertise
                       </h3>
                       <div className="flex flex-wrap gap-2">
-                        {portfolio.portfolio_info.skills
+                        {portfolioData.portfolio_info.skills
                           .slice(0, 6)
                           .map((skill, index) => (
                             <span
@@ -285,38 +346,41 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                               {skill}
                             </span>
                           ))}
-                        {portfolio.portfolio_info.skills.length > 6 && (
+                        {portfolioData.portfolio_info.skills.length > 6 && (
                           <span className="px-3 py-1 bg-purple-200 text-purple-800 rounded-full text-xs font-medium">
-                            +{portfolio.portfolio_info.skills.length - 6} more
+                            +{portfolioData.portfolio_info.skills.length - 6}{" "}
+                            more
                           </span>
                         )}
                       </div>
                     </div>
                   )}
 
-                {portfolio.portfolio_info?.contact_info &&
-                  Object.keys(portfolio.portfolio_info.contact_info).length >
-                    0 && (
+                {portfolioData.portfolio_info?.contact_info &&
+                  Object.keys(portfolioData.portfolio_info.contact_info)
+                    .length > 0 && (
                     <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg">
                       <h3 className="font-semibold text-green-900 mb-3">
                         Contact & Social
                       </h3>
                       <div className="space-y-2">
-                        {portfolio.portfolio_info.contact_info.email && (
+                        {portfolioData.portfolio_info.contact_info.email && (
                           <a
-                            href={`mailto:${portfolio.portfolio_info.contact_info.email}`}
+                            href={`mailto:${portfolioData.portfolio_info.contact_info.email}`}
                             className="flex items-center space-x-2 text-sm text-green-700 hover:text-green-800"
                           >
                             <Mail className="h-4 w-4" />
                             <span className="truncate">
-                              {portfolio.portfolio_info.contact_info.email}
+                              {portfolioData.portfolio_info.contact_info.email}
                             </span>
                           </a>
                         )}
-                        {portfolio.portfolio_info.contact_info.instagram && (
+                        {portfolioData.portfolio_info.contact_info
+                          .instagram && (
                           <a
                             href={
-                              portfolio.portfolio_info.contact_info.instagram
+                              portfolioData.portfolio_info.contact_info
+                                .instagram
                             }
                             target="_blank"
                             rel="noopener noreferrer"
@@ -326,10 +390,10 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                             <span>Instagram</span>
                           </a>
                         )}
-                        {portfolio.portfolio_info.contact_info.linkedin && (
+                        {portfolioData.portfolio_info.contact_info.linkedin && (
                           <a
                             href={
-                              portfolio.portfolio_info.contact_info.linkedin
+                              portfolioData.portfolio_info.contact_info.linkedin
                             }
                             target="_blank"
                             rel="noopener noreferrer"
@@ -339,9 +403,11 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                             <span>LinkedIn</span>
                           </a>
                         )}
-                        {portfolio.portfolio_info.contact_info.twitter && (
+                        {portfolioData.portfolio_info.contact_info.twitter && (
                           <a
-                            href={portfolio.portfolio_info.contact_info.twitter}
+                            href={
+                              portfolioData.portfolio_info.contact_info.twitter
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center space-x-2 text-sm text-green-700 hover:text-green-800"
@@ -355,16 +421,15 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                   )}
               </div>
 
-              {/* Recent Projects Preview */}
-              {portfolio.clients && portfolio.clients.length > 0 && (
+              {processedClients && processedClients.length > 0 && (
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">
                     Recent Projects
                   </h3>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {portfolio.clients.slice(0, 3).map((client, index) => (
+                    {processedClients.slice(0, 3).map((client, index) => (
                       <div
-                        key={index}
+                        key={client.id || index}
                         className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
                       >
                         <div className="flex items-center space-x-3 mb-3">
@@ -388,6 +453,11 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                             {client.description}
                           </p>
                         )}
+                        {client.id && (
+                          <p className="text-xs text-gray-400 mt-2">
+                            Client ID: {client.id}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -408,16 +478,16 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                 </h3>
               </div>
 
-              {portfolio.clients && portfolio.clients.length > 0 ? (
+              {processedClients && processedClients.length > 0 ? (
                 <div className="space-y-4">
-                  {portfolio.clients.map((client, index) => (
+                  {processedClients.map((client, index) => (
                     <div
-                      key={index}
+                      key={client.id || index}
                       className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
                     >
                       <div
                         className="bg-gray-50 p-4 cursor-pointer flex items-center justify-between hover:bg-gray-100 transition-colors duration-200"
-                        onClick={() => toggleClient(index)}
+                        onClick={() => toggleClient(client.id || index)}
                       >
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -434,6 +504,7 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                                 {client.videos?.length || 0} video
                                 {(client.videos?.length || 0) !== 1 ? "s" : ""}
                               </span>
+                              {client.id && <span>ID: {client.id}</span>}
                               {client.description && (
                                 <span className="truncate max-w-xs">
                                   {client.description}
@@ -443,80 +514,125 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                           </div>
                         </div>
 
-                        {expandedClients[index] ? (
+                        {expandedClients[client.id || index] ? (
                           <ChevronUp className="h-5 w-5 text-gray-400" />
                         ) : (
                           <ChevronDown className="h-5 w-5 text-gray-400" />
                         )}
                       </div>
 
-                      {expandedClients[index] &&
+                      {expandedClients[client.id || index] &&
                         client.videos &&
                         client.videos.length > 0 && (
                           <div className="p-4 bg-white">
                             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {client.videos.map((video, videoIndex) => (
-                                <div key={videoIndex} className="group">
-                                  <div className="relative overflow-hidden rounded-lg bg-gray-100 aspect-video mb-3">
-                                    {getThumbnail(video.url) ? (
-                                      <img
-                                        src={getThumbnail(video.url)}
-                                        alt={video.title || "Video thumbnail"}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
+                              {client.videos.map((video, videoIndex) => {
+                                const normalizedUrl = normalizeVideoUrl(
+                                  video.url
+                                );
+                                const thumbnailUrl =
+                                  getThumbnail(video.url) || video.thumbnail;
+
+                                return (
+                                  <div
+                                    key={video.id || videoIndex}
+                                    className="group"
+                                  >
+                                    <div className="relative overflow-hidden rounded-lg bg-gray-100 aspect-video mb-3">
+                                      {thumbnailUrl ? (
+                                        <img
+                                          src={thumbnailUrl}
+                                          alt={video.title || "Video thumbnail"}
+                                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                          onError={(e) => {
+                                            e.target.style.display = "none";
+                                            e.target.nextSibling.style.display =
+                                              "flex";
+                                          }}
+                                        />
+                                      ) : null}
+
+                                      <div
+                                        className={`w-full h-full ${
+                                          thumbnailUrl ? "hidden" : "flex"
+                                        } items-center justify-center bg-gray-200`}
+                                      >
                                         <Play className="h-12 w-12 text-gray-400" />
                                       </div>
-                                    )}
 
-                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
-                                      <Play className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+                                        <Play className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                                      </div>
+
+                                      {video.platform && (
+                                        <div className="absolute top-2 right-2 bg-black bg-opacity-70 rounded-full p-1">
+                                          {getPlatformIcon(video.platform)}
+                                        </div>
+                                      )}
+
+                                      {video.id && (
+                                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 rounded px-2 py-1">
+                                          <span className="text-white text-xs">
+                                            ID: {video.id}
+                                          </span>
+                                        </div>
+                                      )}
                                     </div>
 
-                                    {video.platform && (
-                                      <div className="absolute top-2 right-2 bg-black bg-opacity-70 rounded-full p-1">
-                                        {getPlatformIcon(video.platform)}
+                                    <div>
+                                      <h5 className="font-medium text-gray-900 mb-1 line-clamp-2">
+                                        {video.title || "Untitled Video"}
+                                      </h5>
+
+                                      {video.description && (
+                                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                          {video.description}
+                                        </p>
+                                      )}
+
+                                      {video.project_title && (
+                                        <p className="text-xs text-blue-600 mb-2 font-medium">
+                                          {video.project_title}
+                                        </p>
+                                      )}
+
+                                      <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
+                                        {video.created_at && (
+                                          <span>
+                                            Created:{" "}
+                                            {formatDate(video.created_at)}
+                                          </span>
+                                        )}
+                                        {video.updated_at &&
+                                          video.updated_at !==
+                                            video.created_at && (
+                                            <span>
+                                              Updated:{" "}
+                                              {formatDate(video.updated_at)}
+                                            </span>
+                                          )}
                                       </div>
-                                    )}
+
+                                      {normalizedUrl && (
+                                        <a
+                                          href={normalizedUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                                        >
+                                          <ExternalLink className="h-3 w-3" />
+                                          <span>Watch Video</span>
+                                        </a>
+                                      )}
+                                    </div>
                                   </div>
-
-                                  <div>
-                                    <h5 className="font-medium text-gray-900 mb-1 line-clamp-2">
-                                      {video.title || "Untitled Video"}
-                                    </h5>
-
-                                    {video.description && (
-                                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                                        {video.description}
-                                      </p>
-                                    )}
-
-                                    {video.project_title && (
-                                      <p className="text-xs text-blue-600 mb-2 font-medium">
-                                        {video.project_title}
-                                      </p>
-                                    )}
-
-                                    {video.url && (
-                                      <a
-                                        href={video.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700"
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                        <span>Watch Video</span>
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}
 
-                      {expandedClients[index] &&
+                      {expandedClients[client.id || index] &&
                         (!client.videos || client.videos.length === 0) && (
                           <div className="p-4 bg-white text-center">
                             <div className="py-8">
@@ -552,7 +668,6 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
               </h3>
 
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Basic Information */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <h4 className="font-medium text-gray-900 mb-4 flex items-center space-x-2">
                     <Globe className="h-4 w-4 text-blue-600" />
@@ -577,99 +692,163 @@ export default function EnhancedPortfolioDisplay({ portfolio }) {
                         Platform Type
                       </label>
                       <p className="text-gray-600 text-sm mt-1 capitalize">
-                        {portfolio.type}
+                        {portfolioData.type}
                       </p>
                     </div>
-                    
-                    {portfolio.portfolio_info?.title && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">
+                        Status
+                      </label>
+                      <p className="text-gray-600 text-sm mt-1 capitalize">
+                        {portfolio.status}
+                      </p>
+                    </div>
+                    {portfolio.id && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Portfolio ID
+                        </label>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {portfolio.id}
+                        </p>
+                      </div>
+                    )}
+                    {portfolioData.portfolio_info?.title && (
                       <div>
                         <label className="text-sm font-medium text-gray-700">
                           Title
                         </label>
                         <p className="text-gray-600 text-sm mt-1">
-                          {portfolio.portfolio_info.title}
+                          {portfolioData.portfolio_info.title}
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Statistics */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <h4 className="font-medium text-gray-900 mb-4 flex items-center space-x-2">
-                    <Award className="h-4 w-4 text-green-600" />
-                    <span>Statistics</span>
+                    <Award className="h-4 w-4 text-blue-600" />
+                    <span>Portfolio Metadata</span>
                   </h4>
                   <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-700">
-                        Total Clients
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {totalClients}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-700">
-                        Total Videos
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {totalVideos}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-700">
-                        Skills Listed
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {portfolio.portfolio_info?.skills?.length || 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-700">
-                        Contact Methods
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {portfolio.portfolio_info?.contact_info
-                          ? Object.keys(portfolio.portfolio_info.contact_info)
-                              .length
-                          : 0}
-                      </span>
-                    </div>
+                    {portfolioData.portfolio_info?.meta_description && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Meta Description
+                        </label>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {portfolioData.portfolio_info.meta_description}
+                        </p>
+                      </div>
+                    )}
+                    {portfolioData.portfolio_info?.description && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Description
+                        </label>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {portfolioData.portfolio_info.description}
+                        </p>
+                      </div>
+                    )}
+                    {portfolioData.scraped_at && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Last Scraped
+                        </label>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {formatDate(portfolioData.scraped_at)}
+                        </p>
+                      </div>
+                    )}
+                    {portfolio.created_at && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Created At
+                        </label>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {formatDate(portfolio.created_at)}
+                        </p>
+                      </div>
+                    )}
+                    {portfolio.updated_at && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Updated At
+                        </label>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {formatDate(portfolio.updated_at)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Description */}
-              {portfolio.portfolio_info?.description && (
+              {portfolioData.portfolio_info?.contact_info && (
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h4 className="font-medium text-gray-900 mb-3 flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-purple-600" />
-                    <span>Description</span>
+                  <h4 className="font-medium text-gray-900 mb-4 flex items-center space-x-2">
+                    <Users className="h-4 w-4 text-blue-600" />
+                    <span>Contact Information</span>
                   </h4>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {portfolio.portfolio_info.description}
-                  </p>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {portfolioData.portfolio_info.contact_info.instagram && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Instagram
+                        </label>
+                        <a
+                          href={
+                            portfolioData.portfolio_info.contact_info.instagram
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-blue-600 hover:text-blue-700 break-all text-sm mt-1"
+                        >
+                          {portfolioData.portfolio_info.contact_info.instagram}
+                        </a>
+                      </div>
+                    )}
+                    {portfolioData.portfolio_info.contact_info.linkedin && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          LinkedIn
+                        </label>
+                        <a
+                          href={
+                            portfolioData.portfolio_info.contact_info.linkedin
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-blue-600 hover:text-blue-700 break-all text-sm mt-1"
+                        >
+                          {portfolioData.portfolio_info.contact_info.linkedin}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* All Skills */}
-              {portfolio.portfolio_info?.skills &&
-                portfolio.portfolio_info.skills.length > 0 && (
+              {portfolioData.portfolio_info?.skills &&
+                portfolioData.portfolio_info.skills.length > 0 && (
                   <div className="bg-gray-50 rounded-lg p-6">
-                    <h4 className="font-medium text-gray-900 mb-3 flex items-center space-x-2">
-                      <Tag className="h-4 w-4 text-orange-600" />
-                      <span>Skills & Expertise</span>
+                    <h4 className="font-medium text-gray-900 mb-4 flex items-center space-x-2">
+                      <Tag className="h-4 w-4 text-blue-600" />
+                      <span>Skills</span>
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {portfolio.portfolio_info.skills.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-white border border-gray-200 text-gray-700 rounded-full text-sm"
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                      {portfolioData.portfolio_info.skills.map(
+                        (skill, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                          >
+                            {skill}
+                          </span>
+                        )
+                      )}
                     </div>
                   </div>
                 )}

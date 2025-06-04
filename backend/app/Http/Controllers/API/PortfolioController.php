@@ -57,7 +57,6 @@ class PortfolioController extends Controller
     try {
         $portfolioUrl = $request->input('portfolio_url');
         
-        // Check if portfolio already exists
         $existingPortfolio = Portfolio::where('portfolio_url', $portfolioUrl)->first();
         if ($existingPortfolio) {
             return response()->json([
@@ -66,22 +65,18 @@ class PortfolioController extends Controller
             ], 409);
         }
 
-        // Create portfolio record
         $portfolio = Portfolio::create([
             'portfolio_url' => $portfolioUrl,
             'status' => 'processing'
         ]);
 
-        // Scrape portfolio data
         $scrapedData = $this->scraperService->scrapePortfolio($portfolioUrl);
         
-        // Update portfolio with scraped data
         $portfolio->update([
             'status' => 'completed',
             'scraped_data' => $scrapedData
         ]);
 
-        // Create clients and videos
         if (isset($scrapedData['clients']) && is_array($scrapedData['clients'])) {
             foreach ($scrapedData['clients'] as $clientData) {
                 $client = $portfolio->clients()->create([
@@ -109,7 +104,6 @@ class PortfolioController extends Controller
     } catch (\Exception $e) {
         Log::error('Error processing portfolio: ' . $e->getMessage());
         
-        // Update portfolio status to failed if it was created
         if (isset($portfolio)) {
             $portfolio->update(['status' => 'failed']);
         }
