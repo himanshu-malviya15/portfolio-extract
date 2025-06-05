@@ -107,7 +107,10 @@ git clone https://github.com/himanshu-malviya15/portfolio-extract
 cd portfolio-extract/backend
 
 # Install dependencies
-composer install
+composer install --no-dev
+
+# XAMPP Control Panel
+start Apache and MySQL service
 
 # Environment setup
 cp .env.example .env
