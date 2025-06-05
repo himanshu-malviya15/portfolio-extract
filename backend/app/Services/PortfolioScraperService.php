@@ -13,7 +13,8 @@ class PortfolioScraperService
     public function __construct()
     {
         $this->httpClient = new Client([
-            'timeout' => 30,
+            'timeout' => 60,
+            'connect_timeout' => 15, 
             'verify' => false, 
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
